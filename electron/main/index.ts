@@ -173,9 +173,16 @@ function generateFcpXml(
     }
   }
 
+  // Idle mouth fallback: Rhubarb 给静音段输出 value="X"，但很多素材库没有 X.png。
+  // 优先级：X（Rhubarb 标准静音）→ A（常见闭嘴 idle 约定）→ 第一个能找到的
+  const idleMouth =
+    mouthFiles.has('X') ? 'X' :
+    mouthFiles.has('A') ? 'A' :
+    mouthFiles.size > 0 ? Array.from(mouthFiles.keys())[0] : ''
+
   // Build frame sequence
   const frames: Array<{ frameStart: number; duration: number; mouth: string }> = []
-  
+
   for (const cue of cues) {
     let t = cue.start
     while (t < cue.end - 0.001) {
@@ -194,12 +201,14 @@ function generateFcpXml(
   const totalFrames = frames.length
 
   // Generate FCP XML
+  // ⚠ FCP XML 的 <duration>/<start>/<end> 单位是 timebase frames，
+  //    不存在 "subframe" 一层。30fps 下 5s clip → duration=150 (frames)。
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="5">
   <sequence>
     <name>Lip Sync - ${escapeXml(audioName)}</name>
-    <duration>${totalFrames * 100}</duration>
+    <duration>${totalFrames}</duration>
     <rate>
       <timebase>${fps}</timebase>
       <ntsc>FALSE</ntsc>
@@ -224,32 +233,34 @@ function generateFcpXml(
   // Generate clips
   for (let i = 0; i < frames.length; i++) {
     const f = frames[i]
-    const mouthFile = mouthFiles.get(f.mouth)
+    // 找不到 mouth.png 时 fallback 到 idle，避免时间轴空帧
+    const mouth = mouthFiles.has(f.mouth) ? f.mouth : idleMouth
+    const mouthFile = mouthFiles.get(mouth)
     if (!mouthFile) continue
 
-    const clipStart = i * 100  // 100 subframe units per frame
-    const clipEnd = (i + 1) * 100
+    const clipStart = i      // 单位是 frame，不是 subframe
+    const clipEnd = i + 1
 
     xml += `          <clipitem id="frame-${i}">
-            <name>${f.mouth}</name>
-            <duration>100</duration>
+            <name>${mouth}</name>
+            <duration>1</duration>
             <rate>
               <timebase>${fps}</timebase>
               <ntsc>FALSE</ntsc>
             </rate>
             <start>${clipStart}</start>
             <end>${clipEnd}</end>
-            <file id="mouth-${f.mouth}">
+            <file id="mouth-${mouth}">
               <name>${basename(mouthFile)}</name>
               <pathurl>file://localhost/${encodeURI(mouthFile)}</pathurl>
-              <duration>100</duration>
+              <duration>1</duration>
               <rate>
                 <timebase>${fps}</timebase>
                 <ntsc>FALSE</ntsc>
               </rate>
               <media>
                 <video>
-                  <duration>100</duration>
+                  <duration>1</duration>
                   <samplecharacteristics>
                     <width>1920</width>
                     <height>1080</height>
