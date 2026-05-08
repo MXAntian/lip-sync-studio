@@ -19,12 +19,14 @@ It:
 
 ## Quick start
 
-1. Download the latest portable EXE from [Releases](https://github.com/MXAntian/lip-sync-studio/releases)
-2. Download Rhubarb itself from [DanielSWolf/rhubarb-lip-sync](https://github.com/DanielSWolf/rhubarb-lip-sync/releases) and unzip somewhere
-3. Double-click `Lip Sync Studio x.x.x.exe`
-4. In the GUI, point to your audio, mouth-shape folder, and `rhubarb.exe`
+1. Download the latest ZIP from [Releases](https://github.com/MXAntian/lip-sync-studio/releases) and extract it anywhere
+2. Download Rhubarb itself from [DanielSWolf/rhubarb-lip-sync](https://github.com/DanielSWolf/rhubarb-lip-sync/releases) and unzip — **drop the folder beside `Lip Sync Studio.exe` and the GUI auto-detects it**
+3. Double-click `Lip Sync Studio.exe` inside the extracted folder
+4. In the GUI, point to your audio + mouth-shape folder (Rhubarb path is auto-filled if found)
 5. Click **Generate**, save the XML
 6. In Premiere, `File → Import` the XML → drag the new sequence onto your timeline
+
+> **Why a folder, not a single EXE?** The single-file portable build re-extracts to a temp dir on every launch — settings written there get wiped on the next run. The folder distribution writes settings beside the EXE so they persist across launches.
 
 ## Usage
 

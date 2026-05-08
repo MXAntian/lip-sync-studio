@@ -21,12 +21,14 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/MXAntian/lip-sync-studio/releases) 下最新 portable EXE
-2. 从 [DanielSWolf/rhubarb-lip-sync](https://github.com/DanielSWolf/rhubarb-lip-sync/releases) 下 Rhubarb 本身，解压备用
-3. 双击 `Lip Sync Studio x.x.x.exe`
-4. GUI 里依次选好音频、嘴型文件夹、`rhubarb.exe`
+1. 从 [Releases](https://github.com/MXAntian/lip-sync-studio/releases) 下最新 ZIP，解压到任意位置
+2. 从 [DanielSWolf/rhubarb-lip-sync](https://github.com/DanielSWolf/rhubarb-lip-sync/releases) 下 Rhubarb，解压——**把整个文件夹丢到 `Lip Sync Studio.exe` 旁边，GUI 会自动识别**
+3. 双击解压后文件夹里的 `Lip Sync Studio.exe`
+4. GUI 里选好音频 + 嘴型文件夹（Rhubarb 路径自动填好）
 5. 点「生成 Lip Sync 序列」，保存 XML
 6. Premiere 里 `文件 → 导入` XML，把新序列拖到时间轴
+
+> **为什么是文件夹而不是单 EXE？** 单文件 portable 构建每次启动都把自己解压到临时目录跑，写到那里的配置下次启动就丢了。文件夹分发把配置写在 EXE 旁边，跨次启动稳定保留。
 
 ## 使用说明
 

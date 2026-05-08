@@ -10,7 +10,7 @@
     "package.json"
   ],
   "win": {
-    "target": "portable",
+    "target": "dir",
     "extraResources": [
       {
         "from": "resources/",

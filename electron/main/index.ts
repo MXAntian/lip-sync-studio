@@ -20,14 +20,57 @@ interface PersistedSettings {
   dialogPath?: string
 }
 
+/**
+ * 解析 settings.json 落地位置——区分三种打包形态：
+ * - dev:        electron 解释器 → 项目根
+ * - portable:   electron-builder portable target 把 exe 解压到 %TEMP% 跑，
+ *               process.execPath 是临时路径，必须读 PORTABLE_EXECUTABLE_DIR
+ * - one-dir:    我们当前默认（target: dir），process.execPath 就是真实目录
+ *
+ * v0.1.6 portable 持久化失效就栽在第二条上——写到了临时目录里，重启就没了
+ */
 function getSettingsPath(): string {
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    return join(process.env.PORTABLE_EXECUTABLE_DIR, 'lip-sync-settings.json')
+  }
   const execName = basename(process.execPath).toLowerCase()
-  // Dev：electron 解释器 → 项目根（app.getAppPath 在 dev 下指向项目根）
   if (execName.includes('electron')) {
     return join(app.getAppPath(), 'lip-sync-settings.json')
   }
-  // Packaged：我们 bundled 的 exe → exe 同目录
   return join(dirname(process.execPath), 'lip-sync-settings.json')
+}
+
+/**
+ * 自动探测 rhubarb.exe——在 exe 所在目录及下一级子目录里找。
+ * 找到第一个就返回，找不到返回空串。
+ */
+function autoDetectRhubarb(): string {
+  const baseDir =
+    process.env.PORTABLE_EXECUTABLE_DIR ||
+    (basename(process.execPath).toLowerCase().includes('electron')
+      ? app.getAppPath()
+      : dirname(process.execPath))
+
+  const candidates: string[] = []
+  // 1. 直接同目录
+  candidates.push(join(baseDir, 'rhubarb.exe'))
+  candidates.push(join(baseDir, 'Rhubarb.exe'))
+  // 2. 下一级子目录（如 baseDir/rhubarb-xxx/rhubarb.exe）
+  try {
+    for (const entry of readdirSync(baseDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        candidates.push(join(baseDir, entry.name, 'rhubarb.exe'))
+        candidates.push(join(baseDir, entry.name, 'Rhubarb.exe'))
+      }
+    }
+  } catch {
+    // baseDir 读不了就跳过子目录探测
+  }
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  return ''
 }
 
 function loadSettings(): PersistedSettings {
@@ -76,8 +119,10 @@ let mainWindow: BrowserWindow | null = null
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 560,
-    height: 700,
-    resizable: false,
+    height: 820,                // ↑ 从 700 提到 820，高级选项展开后也装得下
+    minWidth: 480,
+    minHeight: 640,
+    resizable: true,            // 用户可以拖大
     backgroundColor: '#0a0e1a',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -134,7 +179,15 @@ ipcMain.handle('dialog:saveXml', async () => {
 })
 
 // Settings persistence
-ipcMain.handle('settings:load', (): PersistedSettings => loadSettings())
+ipcMain.handle('settings:load', (): PersistedSettings => {
+  const stored = loadSettings()
+  // rhubarb 没存过 / 存的路径已失效 → 试自动探测
+  if (!stored.rhubarbPath || !existsSync(stored.rhubarbPath)) {
+    const detected = autoDetectRhubarb()
+    if (detected) stored.rhubarbPath = detected
+  }
+  return stored
+})
 ipcMain.handle('settings:save', (_e, partial: PersistedSettings): void => saveSettings(partial))
 
 // ── Audio conversion ──
