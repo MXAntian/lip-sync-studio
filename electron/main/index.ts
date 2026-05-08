@@ -121,8 +121,10 @@ function convertToWav(inputPath: string): string {
 
 function runRhubarb(rhubarbPath: string, wavPath: string, dialogPath?: string): Array<{ start: number; end: number; value: string }> {
   const jsonPath = join(tmpdir(), `rhubarb_${Date.now()}.json`)
-  
-  const args = ['-f', 'json', '-o', jsonPath]
+
+  // --extendedShapes "X"：Rhubarb 默认 GHX 都启用，但标准素材库通常只到 F+X。
+  // 显式限制到 X，避免 Rhubarb 输出 G/H 后我们 PNG 找不到、回 fallback 丢嘴型。
+  const args = ['-f', 'json', '--extendedShapes', 'X', '-o', jsonPath]
   if (dialogPath) {
     args.push('-d', dialogPath)
   }
@@ -180,25 +182,28 @@ function generateFcpXml(
     mouthFiles.has('A') ? 'A' :
     mouthFiles.size > 0 ? Array.from(mouthFiles.keys())[0] : ''
 
-  // Build frame sequence
-  const frames: Array<{ frameStart: number; duration: number; mouth: string }> = []
+  // Build frame sequence —— 按 timeline 均匀采样而不是按 cue 切。
+  //
+  // 历史 bug（v0.1.2 及更早）：原来代码对每个 cue 单独跑 `t += frameDuration` 循环切帧，
+  // 当 cue 长度不是 frameDuration 的整数倍时会向上取整一帧。Rhubarb JSON 时间戳
+  // 截断到 0.01s 的整数倍（官方文档保证），而 30fps frameDuration ≈ 0.0333s 跟 0.01s
+  // 不整除，导致每个 cue 累积 0~1 帧偏差。33s 音频通常 100~150 个 cue，总共多生成
+  // ~115 帧 → 序列被拉长 ~11.67%（小天实测 111.66% 倒推完全吻合）。
+  //
+  // 修：用音频总时长 × fps 算总帧数，每帧时间戳 t = i/fps，扫描包含 t 的 cue 取嘴型。
+  const audioDuration = cues.length > 0 ? cues[cues.length - 1].end : 0
+  const totalFrames = Math.round(audioDuration * fps)
+  const frames: Array<{ frameStart: number; mouth: string }> = []
 
-  for (const cue of cues) {
-    let t = cue.start
-    while (t < cue.end - 0.001) {
-      const remaining = cue.end - t
-      const duration = Math.min(frameDuration, remaining)
-      frames.push({
-        frameStart: t,
-        duration,
-        mouth: cue.value
-      })
-      t += frameDuration
-    }
+  let cueIdx = 0
+  for (let i = 0; i < totalFrames; i++) {
+    const t = i / fps
+    // cues 是按时间顺序连续的，cueIdx 单调推进
+    while (cueIdx < cues.length && t >= cues[cueIdx].end) cueIdx++
+    const cue = cues[cueIdx]
+    const mouth = cue ? cue.value : (idleMouth || 'X')
+    frames.push({ frameStart: t, mouth })
   }
-
-  // Total duration in frames
-  const totalFrames = frames.length
 
   // Generate FCP XML
   // ⚠ FCP XML 的 <duration>/<start>/<end> 单位是 timebase frames，
