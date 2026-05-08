@@ -16,6 +16,16 @@ export interface LipSyncResult {
   error?: string
 }
 
+export interface PersistedSettings {
+  audioPath?: string
+  mouthDir?: string
+  rhubarbPath?: string
+  fps?: number
+  recognizer?: 'pocketSphinx' | 'phonetic'
+  extendedShapes?: string
+  dialogPath?: string
+}
+
 const api = {
   openAudioFile: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFile', [{ name: 'Audio', extensions: ['wav', 'mp3', 'ogg'] }]),
@@ -33,7 +43,13 @@ const api = {
     ipcRenderer.invoke('dialog:saveXml'),
 
   generate: (config: LipSyncConfig): Promise<LipSyncResult> =>
-    ipcRenderer.invoke('lipsync:generate', config)
+    ipcRenderer.invoke('lipsync:generate', config),
+
+  loadSettings: (): Promise<PersistedSettings> =>
+    ipcRenderer.invoke('settings:load'),
+
+  saveSettings: (partial: PersistedSettings): Promise<void> =>
+    ipcRenderer.invoke('settings:save', partial)
 }
 
 contextBridge.exposeInMainWorld('lipSyncApi', api)

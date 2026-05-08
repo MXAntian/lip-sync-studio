@@ -1,6 +1,6 @@
 {
   "name": "lip-sync-studio",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Rhubarb Lip Sync GUI — auto-generate Premiere-compatible lip sync sequences from audio + mouth PNGs",
   "type": "module",
   "main": "out/main/index.js",

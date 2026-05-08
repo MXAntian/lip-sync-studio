@@ -1,9 +1,52 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { spawnSync, execSync } from 'child_process'
-import { existsSync, readdirSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { basename, extname } from 'path'
+
+// ── Settings persistence ──
+//
+// Portable 设计：配置存在 exe 同目录的 JSON 里，跟 exe 一起拷走就能在
+// 别的机器上保留偏好。Dev 模式存项目根，方便调试。
+
+interface PersistedSettings {
+  audioPath?: string
+  mouthDir?: string
+  rhubarbPath?: string
+  fps?: number
+  recognizer?: 'pocketSphinx' | 'phonetic'
+  extendedShapes?: string
+  dialogPath?: string
+}
+
+function getSettingsPath(): string {
+  const execName = basename(process.execPath).toLowerCase()
+  // Dev：electron 解释器 → 项目根（app.getAppPath 在 dev 下指向项目根）
+  if (execName.includes('electron')) {
+    return join(app.getAppPath(), 'lip-sync-settings.json')
+  }
+  // Packaged：我们 bundled 的 exe → exe 同目录
+  return join(dirname(process.execPath), 'lip-sync-settings.json')
+}
+
+function loadSettings(): PersistedSettings {
+  try {
+    const raw = readFileSync(getSettingsPath(), 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
+function saveSettings(partial: PersistedSettings): void {
+  try {
+    const merged = { ...loadSettings(), ...partial }
+    writeFileSync(getSettingsPath(), JSON.stringify(merged, null, 2), 'utf8')
+  } catch (e) {
+    console.error('[settings] save failed:', e)
+  }
+}
 
 // ── Types ──
 
@@ -89,6 +132,10 @@ ipcMain.handle('dialog:saveXml', async () => {
   })
   return result.canceled ? null : result.filePath ?? null
 })
+
+// Settings persistence
+ipcMain.handle('settings:load', (): PersistedSettings => loadSettings())
+ipcMain.handle('settings:save', (_e, partial: PersistedSettings): void => saveSettings(partial))
 
 // ── Audio conversion ──
 
