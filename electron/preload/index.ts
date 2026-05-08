@@ -5,6 +5,9 @@ export interface LipSyncConfig {
   mouthDir: string
   fps: number
   rhubarbPath: string
+  recognizer?: 'pocketSphinx' | 'phonetic'
+  extendedShapes?: string
+  dialogPath?: string
 }
 
 export interface LipSyncResult {
@@ -16,16 +19,19 @@ export interface LipSyncResult {
 const api = {
   openAudioFile: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFile', [{ name: 'Audio', extensions: ['wav', 'mp3', 'ogg'] }]),
-  
+
   openMouthFolder: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openFolder'),
-  
+
   openRhubarb: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:openRhubarb'),
-  
+
+  openDialogFile: (): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:openFile', [{ name: 'Text', extensions: ['txt'] }]),
+
   saveXml: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:saveXml'),
-  
+
   generate: (config: LipSyncConfig): Promise<LipSyncResult> =>
     ipcRenderer.invoke('lipsync:generate', config)
 }

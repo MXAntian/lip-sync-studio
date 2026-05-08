@@ -1,7 +1,11 @@
 import { useStore } from '../store'
 
 export function GenerateButton() {
-  const { audioPath, mouthDir, rhubarbPath, fps, status, setStatus, setResultPath } = useStore()
+  const {
+    audioPath, mouthDir, rhubarbPath, fps,
+    recognizer, extendedShapes, dialogPath,
+    status, setStatus, setResultPath
+  } = useStore()
 
   const canGenerate = audioPath && mouthDir && rhubarbPath && fps > 0 && status !== 'running'
 
@@ -14,7 +18,10 @@ export function GenerateButton() {
       audioPath,
       mouthDir,
       fps,
-      rhubarbPath
+      rhubarbPath,
+      recognizer,
+      extendedShapes,
+      dialogPath: dialogPath || undefined
     })
 
     if (result.ok && result.xmlPath) {

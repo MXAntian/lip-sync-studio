@@ -12,6 +12,12 @@ export interface LipSyncConfig {
   mouthDir: string
   fps: number
   rhubarbPath: string
+  /** 'pocketSphinx' (default, English) | 'phonetic' (any language) */
+  recognizer?: 'pocketSphinx' | 'phonetic'
+  /** Rhubarb --extendedShapes 值，默认 'GHX'。可选 '' / 'X' / 'GX' / 'GHX' */
+  extendedShapes?: string
+  /** 可选台本文件路径（仅 pocketSphinx 英文识别有效） */
+  dialogPath?: string
 }
 
 export interface LipSyncResult {
@@ -119,15 +125,35 @@ function convertToWav(inputPath: string): string {
 
 // ── Rhubarb execution ──
 
-function runRhubarb(rhubarbPath: string, wavPath: string, dialogPath?: string): Array<{ start: number; end: number; value: string }> {
+function runRhubarb(
+  rhubarbPath: string,
+  wavPath: string,
+  opts: {
+    dialogPath?: string
+    recognizer?: 'pocketSphinx' | 'phonetic'
+    extendedShapes?: string
+  } = {}
+): Array<{ start: number; end: number; value: string }> {
   const jsonPath = join(tmpdir(), `rhubarb_${Date.now()}.json`)
 
-  // --extendedShapes "X"：Rhubarb 默认 GHX 都启用，但标准素材库通常只到 F+X。
-  // 显式限制到 X，避免 Rhubarb 输出 G/H 后我们 PNG 找不到、回 fallback 丢嘴型。
-  const args = ['-f', 'json', '--extendedShapes', 'X', '-o', jsonPath]
-  if (dialogPath) {
-    args.push('-d', dialogPath)
+  const args = ['-f', 'json', '-o', jsonPath]
+
+  // 识别器：pocketSphinx (默认，英文) 或 phonetic (任意语言)
+  if (opts.recognizer) {
+    args.push('-r', opts.recognizer)
   }
+
+  // 扩展嘴型：'' / 'X' / 'GX' / 'GHX'，默认 GHX
+  // 用 typeof 判断而不是 truthy，因为 '' 也是合法值（基础集 ABCDEF）
+  if (typeof opts.extendedShapes === 'string') {
+    args.push('--extendedShapes', opts.extendedShapes)
+  }
+
+  // 台本文件（提高识别准度，仅 pocketSphinx 英文场景有效）
+  if (opts.dialogPath) {
+    args.push('-d', opts.dialogPath)
+  }
+
   args.push(wavPath)
 
   const result = spawnSync(rhubarbPath, args, {
@@ -166,10 +192,10 @@ function generateFcpXml(
   const frameDuration = 1 / fps
   const mouthFiles = new Map<string, string>()
 
-  // Discover mouth PNGs: A.png, B.png, ... F.png, X.png
+  // Discover mouth PNGs: A.png ~ H.png, X.png（覆盖 Rhubarb 全部 9 种嘴型）
   const files = readdirSync(mouthDir)
   for (const f of files) {
-    const match = f.match(/^([A-FX])\.png$/i)
+    const match = f.match(/^([A-HX])\.png$/i)
     if (match) {
       mouthFiles.set(match[1].toUpperCase(), join(mouthDir, f).replace(/\\/g, '/'))
     }
@@ -298,7 +324,7 @@ function escapeXml(s: string): string {
 
 ipcMain.handle('lipsync:generate', async (_e, config: LipSyncConfig): Promise<LipSyncResult> => {
   try {
-    const { audioPath, mouthDir, fps, rhubarbPath } = config
+    const { audioPath, mouthDir, fps, rhubarbPath, recognizer, extendedShapes, dialogPath } = config
 
     // Validate
     if (!existsSync(rhubarbPath)) {
@@ -310,6 +336,9 @@ ipcMain.handle('lipsync:generate', async (_e, config: LipSyncConfig): Promise<Li
     if (!existsSync(mouthDir)) {
       return { ok: false, error: `口型文件夹未找到: ${mouthDir}` }
     }
+    if (dialogPath && !existsSync(dialogPath)) {
+      return { ok: false, error: `台本文件未找到: ${dialogPath}` }
+    }
 
     // Convert audio to WAV if needed
     const ext = extname(audioPath).toLowerCase()
@@ -319,7 +348,7 @@ ipcMain.handle('lipsync:generate', async (_e, config: LipSyncConfig): Promise<Li
     }
 
     // Run Rhubarb
-    const cues = runRhubarb(rhubarbPath, wavPath)
+    const cues = runRhubarb(rhubarbPath, wavPath, { recognizer, extendedShapes, dialogPath })
     if (!cues || cues.length === 0) {
       return { ok: false, error: 'Rhubarb 未生成口型数据。请检查音频文件是否包含人声。' }
     }

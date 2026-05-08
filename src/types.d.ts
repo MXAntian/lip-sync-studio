@@ -3,6 +3,9 @@ export interface LipSyncConfig {
   mouthDir: string
   fps: number
   rhubarbPath: string
+  recognizer?: 'pocketSphinx' | 'phonetic'
+  extendedShapes?: string
+  dialogPath?: string
 }
 
 export interface LipSyncResult {
@@ -15,6 +18,7 @@ interface LipSyncApi {
   openAudioFile: () => Promise<string | null>
   openMouthFolder: () => Promise<string | null>
   openRhubarb: () => Promise<string | null>
+  openDialogFile: () => Promise<string | null>
   saveXml: () => Promise<string | null>
   generate: (config: LipSyncConfig) => Promise<LipSyncResult>
 }
