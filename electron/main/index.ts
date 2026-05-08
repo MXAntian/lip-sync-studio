@@ -237,8 +237,8 @@ function generateFcpXml(
               <timebase>${fps}</timebase>
               <ntsc>FALSE</ntsc>
             </rate>
-            <start>0</start>
-            <end>100</end>
+            <start>${clipStart}</start>
+            <end>${clipEnd}</end>
             <file id="mouth-${f.mouth}">
               <name>${basename(mouthFile)}</name>
               <pathurl>file://localhost/${encodeURI(mouthFile)}</pathurl>
