@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useStore } from './store'
 import { FilePicker } from './components/FilePicker'
 import { GenerateButton } from './components/GenerateButton'
@@ -14,6 +15,11 @@ export default function App() {
   const recognizer = useStore(s => s.recognizer)
   const extendedShapes = useStore(s => s.extendedShapes)
   const dialogPath = useStore(s => s.dialogPath)
+
+  // 用 React state 自己控折叠态，而不是 native <details>——
+  // <details>/<summary> 在 Tailwind preflight + Electron webview 下的 toggle
+  // 行为有时静默失效（v0.1.4 实测），React state 100% 可控
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   return (
     <div className="h-screen flex flex-col p-6 pt-10 gap-4">
@@ -62,12 +68,19 @@ export default function App() {
           <span className="text-xs text-muted">fps（默认 30）</span>
         </div>
 
-        {/* Advanced — 折叠收起 */}
-        <details className="bg-card border border-border rounded-lg">
-          <summary className="cursor-pointer text-sm text-white px-4 py-3 select-none hover:text-accent transition-colors">
-            ⚙️ 高级选项 <span className="text-xs text-muted ml-1">(识别器 · 嘴型集 · 台本)</span>
-          </summary>
+        {/* Advanced — 折叠收起（React state 控制，不依赖 <details>） */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen(v => !v)}
+            className="w-full flex items-center text-left text-sm text-white px-4 py-3 hover:bg-bg/40 transition-colors select-none"
+          >
+            <span className="text-muted mr-2 inline-block w-3 text-xs">{advancedOpen ? '▼' : '▶'}</span>
+            <span>⚙️ 高级选项</span>
+            <span className="text-xs text-muted ml-2">(识别器 · 嘴型集 · 台本)</span>
+          </button>
 
+          {advancedOpen && (
           <div className="border-t border-border px-4 py-3 flex flex-col gap-3">
             {/* Recognizer */}
             <div className="flex flex-col gap-1.5">
@@ -110,7 +123,8 @@ export default function App() {
               />
             </div>
           </div>
-        </details>
+          )}
+        </div>
       </div>
 
       {/* Generate */}
